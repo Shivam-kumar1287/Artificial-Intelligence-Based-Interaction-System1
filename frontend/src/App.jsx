@@ -3,7 +3,10 @@ import io from 'socket.io-client';
 import { Send, Mic, MicOff, Volume2, Settings, User, Bot, Sparkles, Hand, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const socket = io('http://localhost:5000');
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5000' : '');
+// For Vercel deployment, we use REST API because Socket.io (WebSockets) is not supported in Vercel Serverless Functions.
+const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const socket = isLocal ? io(BACKEND_URL) : { on: () => { }, off: () => { }, emit: () => { }, connected: false };
 
 function App() {
   const [messages, setMessages] = useState([
@@ -124,13 +127,38 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (text = inputText, modality = 'text') => {
+  const handleSendMessage = async (text = inputText, modality = 'text') => {
     if (!text.trim()) return;
 
     const newMessage = { text, sender: 'user', timestamp: new Date(), modality };
     setMessages(prev => [...prev, newMessage]);
-    socket.emit('send_message', { text, modality });
     setInputText('');
+
+    // Use REST API for Vercel compatibility
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, modality })
+      });
+
+      if (!response.ok) throw new Error('Failed to get response');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, data]);
+
+      // Auto-speak logic
+      if (isSpeakingRef.current || modality === 'voice') {
+        speak(data.text);
+      }
+    } catch (error) {
+      console.error('Chat Error:', error);
+      setMessages(prev => [...prev, {
+        text: "Sorry, I'm having trouble connecting to the server. Please try again.",
+        sender: 'ai',
+        isError: true
+      }]);
+    }
   };
 
   const toggleListening = () => {

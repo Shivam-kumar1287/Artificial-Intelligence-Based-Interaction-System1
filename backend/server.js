@@ -24,6 +24,23 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/ai-interact
 
 const aiService = require('./services/aiService');
 
+// REST API for Vercel Compatibility (Socket.io doesn't work on Vercel Serverless)
+app.post('/api/chat', async (req, res) => {
+  const { text, modality, userId = 'anonymous' } = req.body;
+  try {
+    const aiResponse = await aiService.processInteraction(userId, text, modality);
+    res.json({
+      text: aiResponse,
+      sender: 'ai',
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('API Error:', error);
+    res.status(500).json({ message: 'Failed to process interaction' });
+  }
+});
+
+
 // Socket.io for Real-time Interaction
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -50,7 +67,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
