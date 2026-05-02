@@ -30,10 +30,10 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', async (data) => {
     const { text, modality, userId = 'anonymous' } = data;
-    
+
     try {
       const aiResponse = await aiService.processInteraction(userId, text, modality);
-      
+
       socket.emit('receive_message', {
         text: aiResponse,
         sender: 'ai',

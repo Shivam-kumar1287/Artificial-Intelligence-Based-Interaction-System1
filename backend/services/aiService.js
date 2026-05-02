@@ -46,7 +46,7 @@ class AIService {
       // 4. Call Groq Cloud
       const completion = await groq.chat.completions.create({
         messages: messages,
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         temperature: 0.7,
         max_tokens: 1024,
       });
